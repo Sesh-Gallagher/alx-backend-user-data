@@ -6,7 +6,6 @@ import os
 from os import getenv
 from flask import Flask, jsonify, abort, request
 from flask_cors import (CORS, cross_origin)
-
 from api.v1.views import app_views
 from api.v1.auth.auth import Auth
 from api.v1.auth.basic_auth import BasicAuth
@@ -23,32 +22,8 @@ if auth_type == 'basic_auth':
     auth = BasicAuth()
 
 
-@app.errorhandler(404)
-def not_found(error) -> str:
-    """
-    Represents not found handler.
-    """
-    return jsonify({"error": "Not found"}), 404
-
-
-@app.errorhandler(401)
-def unauthorized(error) -> tuple[str, literal(401)
-    """
-    Represents unauthorized handler.
-    """
-    return jsonify({"error": "Unauthorized"}), 401
-
-
-@app.errorhandler(403)
-def forbidden(error) -> str:
-    """
-    Represents forbidden handler.
-    """
-    return jsonify({"error": "Forbidden"}), 403
-
-
 @app.before_request
-def authenticate_user():
+def user_authentication():
     """
     Represents authenticates a user before processing a request.
     """
@@ -67,7 +42,31 @@ def authenticate_user():
                 abort(403)
 
 
+@app.errorhandler(404)
+def not_found(error) -> str:
+    """
+    Represents not found handler.
+    """
+    return jsonify({"error": "Not found"}), 404
+
+
+@app.errorhandler(401)
+def unauthorized(error) -> str:
+    """
+    Represents unauthorized handler.
+    """
+    return jsonify({"error": "Unauthorized"}), 401
+
+
+@app.errorhandler(403)
+def forbidden(error) -> str:
+    """
+    Represents forbidden handler.
+    """
+    return jsonify({"error": "Forbidden"}), 403
+
+
 if __name__ == "__main__":
     host = getenv("API_HOST", "0.0.0.0")
     port = getenv("API_PORT", "5000")
-    app.run(host=host, port=port)
+    app.run(host=host, port=port, debug=True)
