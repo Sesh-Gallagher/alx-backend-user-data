@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """ Represents the  Database for ORM """
-from sqlalchemy import create_engine, tupe_
+from sqlalchemy import create_engine, tuple_
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import Session
 from typing import TypeVar, Type, Mapping, Dict
@@ -50,36 +50,23 @@ class DB:
         """
         Module to Find a user based on a set of filters.
         """
-        if not kwargs:
-            raise InvalidRequestError
-
-        column_names = User.__table__.columns.keys()
-        for key in kwargs.keys():
-            if key not in column_names:
+        for key in kwargs:
+            if not hasattr(User, key):
                 raise InvalidRequestError
-
         user = self._session.query(User).filter_by(**kwargs).first()
-
         if user is None:
             raise NoResultFound
-
         return user
 
     def update_user(self, user_id: int, **kwargs) -> None:
         """
         Uses find_user_by to locate a user based on a given id.
         """
-        userz = self.find_user_by(id=user_id)
-        if userz is None:
-            return
-        update_source = {}
+        user = self.find_user_by(id=user_id)
         for key, value in kwargs.items():
-            if hasattr(User, key):
-                update_source[getattr(User, key)] = value
+            if hasattr(user, key):
+                setattr(user, key, value)
             else:
-                raise ValueError()
-        self._session.query(User).filter(User.id == user_id).update(
-            update_source,
-            synchronize_session=False,
-        )
+                raise ValueError
+        self.__session.add(user)
         self._session.commit()
