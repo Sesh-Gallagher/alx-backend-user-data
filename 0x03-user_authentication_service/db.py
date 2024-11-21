@@ -41,32 +41,48 @@ class DB:
         Module that adds a User to db
         and Returns a User object
         """
-        user = User(email=email, hashed_password=hashed_password)
-        self._session.add(user)
-        self._session.commit()
+        try:
+            user = User(email=email, hashed_password=hashed_password)
+            self._session.add(user)
+            self._session.commit()
+        except Exception:
+            self._session.rollback()
+            user = None
         return user
 
     def find_user_by(self, **kwargs) -> User:
         """
         Module to Find a user based on a set of filters.
         """
-        for key in kwargs:
-            if not hasattr(User, key):
-                raise InvalidRequestError
-        user = self._session.query(User).filter_by(**kwargs).first()
-        if user is None:
-            raise NoResultFound
-        return user
+        values, fields = [], []
+        for key, value in kwargs.items():
+            if hasattr(User, key):
+                fields.append(getattr(User, key))
+                values.append(value)
+            else:
+                raise InvalidRequestError()
+        results = self._session.query(User).filter(
+            tuple_(*fields).in_([tuple(values)])
+        ).first()
+        if results is None:
+            raise NoResultFound()
+        return results
 
     def update_user(self, user_id: int, **kwargs) -> None:
         """
         Uses find_user_by to locate a user based on a given id.
         """
-        user = self.find_user_by(id=user_id)
+        new_user = self.find_user_by(id=user_id)
+        if new_user is None:
+            return
+        updated_source = {}
         for key, value in kwargs.items():
-            if hasattr(user, key):
-                setattr(user, key, value)
+            if hasattr(User, key):
+                updated_source[getattr(User, key)] = value
             else:
-                raise ValueError
-        self.__session.add(user)
+                raise ValueError()
+        self._session.query(User).filter(User.id == user_id).update(
+            update_source,
+            synchronize_session=False,
+        )
         self._session.commit()
