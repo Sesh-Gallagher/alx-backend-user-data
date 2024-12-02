@@ -2,6 +2,7 @@
 """
 Route module for the API
 """
+import os
 from os import getenv
 
 from api.v1.views import app_views
@@ -12,24 +13,35 @@ from flask_cors import (CORS, cross_origin)
 app = Flask(__name__)
 app.register_blueprint(app_views)
 CORS(app, resources={r"/api/v1/*": {"origins": "*"}})
+auth = os.getenv('AUTH_TYPE')
 
-auth = None
 
-if getenv('AUTH_TYPE') == 'auth':
+def get_auth():
+    """
+    Module all auth classes getter
+    """
     from api.v1.auth.auth import Auth
-    auth = Auth()
-elif getenv('AUTH_TYPE') == 'basic_auth':
     from api.v1.auth.basic_auth import BasicAuth
-    auth = BasicAuth()
-elif getenv('AUTH_TYPE') == 'session_auth':
     from api.v1.auth.session_auth import SessionAuth
-    auth = SessionAuth()
-elif getenv('AUTH_TYPE') == 'session_exp_auth':
     from api.v1.auth.session_exp_auth import SessionExpAuth
-    auth = SessionExpAuth()
-elif getenv('AUTH_TYPE') == 'session_db_auth':
     from api.v1.auth.session_db_auth import SessionDBAuth
-    auth = SessionDBAuth()
+
+    authentication_repo = {
+        'auth': Auth,
+        'basic_auth': BasicAuth,
+        'session_auth': SessionAuth,
+        'session_exp_auth': SessionExpAuth,
+        'session_db_auth': SessionDBAuth
+    }
+
+    return authentication_repo
+
+
+if auth:
+    try:
+        auth = get_auth()[auth]()
+    except Exception:
+        auth = None
 
 
 @app.errorhandler(404)
