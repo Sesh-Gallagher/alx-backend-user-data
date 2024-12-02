@@ -1,93 +1,88 @@
 #!/usr/bin/env python3
 """
-Route module for the API
+module that represents route for the API
 """
 import os
 from os import getenv
-
 from api.v1.views import app_views
 from flask import Flask, jsonify, abort, request
 from flask_cors import (CORS, cross_origin)
 
 
 app = Flask(__name__)
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 app.register_blueprint(app_views)
 CORS(app, resources={r"/api/v1/*": {"origins": "*"}})
-auth = os.getenv('AUTH_TYPE')
+auth = None
+AUTH_TYPE = getenv("AUTH_TYPE")
 
-
-def get_auth():
-    """
-    Module all auth classes getter
-    """
+if AUTH_TYPE == "auth":
     from api.v1.auth.auth import Auth
+    auth = Auth()
+elif AUTH_TYPE == "basic_auth":
     from api.v1.auth.basic_auth import BasicAuth
+    auth = BasicAuth()
+elif AUTH_TYPE == "session_auth":
     from api.v1.auth.session_auth import SessionAuth
+    auth = SessionAuth()
+elif AUTH_TYPE == "session_exp_auth":
     from api.v1.auth.session_exp_auth import SessionExpAuth
+    auth = SessionExpAuth()
+elif AUTH_TYPE == "session_db_auth":
     from api.v1.auth.session_db_auth import SessionDBAuth
-
-    authentication_repo = {
-        'auth': Auth,
-        'basic_auth': BasicAuth,
-        'session_auth': SessionAuth,
-        'session_exp_auth': SessionExpAuth,
-        'session_db_auth': SessionDBAuth
-    }
-
-    return authentication_repo
+    auth = SessionDBAuth()
 
 
-if auth:
-    try:
-        auth = get_auth()[auth]()
-    except Exception:
-        auth = None
-
-
-@app.errorhandler(404)
+@ app.errorhandler(404)
 def not_found(error) -> str:
     """
-    Represents not found handler
+    Represents Not found handler function
     """
     return jsonify({"error": "Not found"}), 404
 
 
-@app.errorhandler(401)
+@ app.errorhandler(401)
 def unauthorized_error(error) -> str:
     """
-    Represents unauthorized handler
+    Represents Unauthorized handler function
     """
     return jsonify({"error": "Unauthorized"}), 401
 
 
-@app.errorhandler(403)
+@ app.errorhandler(403)
 def forbidden_error(error) -> str:
     """
-    Represents forbidden handler
+    Represents Forbidden handler
     """
     return jsonify({"error": "Forbidden"}), 403
 
 
-@app.before_request
-def before_request() -> None:
+@ app.before_request
+def before_request() -> str:
     """
-    Represents filter for request
+    Sends Before Request Handler
+    Requests Validation
     """
-    request_path_list = [
-        '/api/v1/status/',
-        '/api/v1/unauthorized/',
-        '/api/v1/forbidden/',
-        '/api/v1/auth_session/login/']
-    if auth:
-        if auth.require_auth(request.path, request_path_list):
-            if auth.authorization_header(
-                    request) is None and auth.session_cookie(request) is None:
-                abort(401)
-            request.current_user = auth.current_user(request)
-            if auth.current_user(request) is None:
-                abort(403)
-            if request.current_user is None:
-                abort(403)
+    if auth is None:
+        return
+
+    excluded_paths = ['/api/v1/status/',
+                      '/api/v1/unauthorized/',
+                      '/api/v1/forbidden/',
+                      '/api/v1/auth_session/login/']
+
+    if not auth.require_auth(request.path, excluded_paths):
+        return
+
+    if auth.authorization_header(request) is None \
+            and auth.session_cookie(request) is None:
+        abort(401)
+
+    current_user = auth.current_user(request)
+    if current_user is None:
+        abort(403)
+
+    request.current_user = current_user
 
 
 if __name__ == "__main__":
